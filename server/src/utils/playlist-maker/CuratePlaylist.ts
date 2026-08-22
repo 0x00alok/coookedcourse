@@ -1,11 +1,8 @@
-import type { CookedTopics } from '../../types/cookedcourse';
 import { getRedisClient } from '../redis-client/getRedisClient';
 import { CK_CHANNELS_WITH_VIDEOS_DETAILS, CK_CHANNELS_WITH_VIDEOS_TITLES, CK_COOKED_PLAYLIST_LIST, CK_COOKED_PLAYLIST_VIDEOS_LIST } from '../../constants/constants';
-import { checkInCacheAndSet, fetchTemplate } from '../redis-client/checkExistsInCache';
-import { extractPlaylistIds, fetchAllVideosWithRetry } from './playlistMakerUtils';
+import { extractPlaylistIds, fetchAllVideosWithRetry, fetchPlaylistsOfSubject } from './playlistMakerUtils';
 import { VideoListArranger } from './VideoListArranger';
-import type { CollegeAnalysis, QueryString, VideoListItem } from '../../types/playlistMaker';
-import { APIFeature } from '../APIFeatures';
+import type { QueryString, VideoListItem } from '../../types/playlistMaker';
 
 export class CuratePlaylist {
     private topics;
@@ -33,28 +30,14 @@ export class CuratePlaylist {
     }
 
     /**
-     * Funtion to return all playlists of related subject 
-     */
-    private async fetchPlaylists(token: string) {
-        /**
-         * TODO: Better Key Generation
-         */
-        const cacheKey = `${token}#${CK_COOKED_PLAYLIST_LIST}`
-
-        const playlistsItem = await fetchTemplate(cacheKey, this.SEARCH_PLAYLIST_URL)
-
-        return playlistsItem;
-    }
-
-    /**
      * Funtion to return all videos of related PLAYLIST 
      */
     async fetchPlaylistVideos(clientToken: string = '', query: QueryString, chaptersData) {
         // Fetch Playlists
-        const fetchedPlaylists = await this.fetchPlaylists(clientToken)
+        const fetchedPlaylists = await fetchPlaylistsOfSubject(clientToken, this.SEARCH_PLAYLIST_URL);
 
         // Extract playlist ids from the Playlists
-        const playlistIds: string[] = extractPlaylistIds(fetchedPlaylists.items)
+        const playlistIds: string[] = extractPlaylistIds(fetchedPlaylists.items);
 
         // Make the Video URLS
         const playlistVideoURLS: string[] = playlistIds.map((playlistId: string) => this.makeVideosOfPlaylistURL(playlistId))

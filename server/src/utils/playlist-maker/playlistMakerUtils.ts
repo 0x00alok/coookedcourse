@@ -1,11 +1,25 @@
 import axios from 'axios'
 import { LLMPassedSyllabusYoutubeTopics } from '../../types/playlistMaker';
+import { CK_COOKED_PLAYLIST_LIST } from '../../constants/constants';
+import { fetchTemplate } from '../redis-client/checkExistsInCache';
 
 /**
  * Returns playlist ids
  */
 export const extractPlaylistIds = (playlists: any[]): string[] => {
     return playlists.map((playlist: any) => playlist.id.playlistId)
+}
+
+/**
+ * Funtion to return all playlists of related subject 
+ */
+export const fetchPlaylistsOfSubject = async (token: string, SEARCH_PLAYLIST_URL: string) => {
+    // TODO: Better Key Generation
+    const cacheKey = `${token}#${CK_COOKED_PLAYLIST_LIST}`
+
+    const playlistsItem = await fetchTemplate(cacheKey, SEARCH_PLAYLIST_URL)
+
+    return playlistsItem;
 }
 
 /**
