@@ -1,7 +1,7 @@
 import { getRedisClient } from '../redis-client/getRedisClient';
 import { CK_CHANNELS_WITH_VIDEOS_DETAILS, CK_CHANNELS_WITH_VIDEOS_TITLES, CK_COOKED_PLAYLIST_LIST, CK_COOKED_PLAYLIST_VIDEOS_LIST } from '../../constants/constants';
 import { extractPlaylistIds, fetchAllVideosWithRetry, fetchPlaylistsOfSubject } from './playlistMakerUtils';
-import { VideoListArranger } from './VideoListArranger';
+import { VideoDataExtractor } from './VideoDataExtractor';
 import type { QueryString, VideoListItem } from '../../types/playlistMaker';
 
 export class CuratePlaylist {
@@ -45,7 +45,7 @@ export class CuratePlaylist {
         // GET Redis client
         const redisClient = await getRedisClient()
 
-        let vla: VideoListArranger = new VideoListArranger();
+        let vla: VideoDataExtractor = new VideoDataExtractor();
         let channelsListWithTopics: VideoListItem[] | undefined = undefined;
 
         // Prior to making Request, Check curated items in cache
@@ -55,7 +55,7 @@ export class CuratePlaylist {
             const vidoesItems = (await fetchAllVideosWithRetry(playlistVideoURLS));
 
             // Arrange Video List
-            vla = new VideoListArranger(vidoesItems);
+            vla = new VideoDataExtractor(vidoesItems);
 
             channelsListWithTopics = vla.extractVideosTopics()!;
             await redisClient.set(`${CK_CHANNELS_WITH_VIDEOS_TITLES}#${clientToken}`, JSON.stringify(channelsListWithTopics))

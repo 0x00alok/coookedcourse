@@ -2,7 +2,7 @@ import type { CookedTopics } from '../../types/cookedcourse';
 import type { AnalyzedSyllabus, LLMPassedSyllabusYoutubeTopics, VideoListItem } from '../../types/playlistMaker';
 import { axiosPostWithRetry } from './playlistMakerUtils';
 
-export class VideoListArranger {
+export class VideoDataExtractor {
     private videoList;
     private channelsListWithTopics?: VideoListItem[]
     private analyzedSyllabus?: AnalyzedSyllabus[];
@@ -12,52 +12,52 @@ export class VideoListArranger {
         this.videoList = videoList;
     }
 
+    /**
+     * Extracts details of each channel's video
+     */
     extractVideosDetails() {
         this.channelsListWithVideoDetails = this.videoList.reduce((acc: any, videDetailsItem: any) => {
-            // Check if the promise was fulfilled and contains items
             if (
                 videDetailsItem.status === 'fulfilled' && videDetailsItem.value
             ) {
                 const apiResponse = videDetailsItem.value;
                 const firstItemSnippet = apiResponse[0].snippet;
 
-                // Map over the items in the current API response to create the video list
                 const videoItems = apiResponse.map((item: any) => {
                     return {
                         itemId: item.id,
                         title: item.snippet.title,
-                        // Note: videoId is in contentDetails, not snippet
                         videoId: item.contentDetails.videoId,
                     };
                 });
 
-                // Create the main object for this channel/playlist
+                // Add channel details to it's video items
                 const channelObject = {
                     channelName: firstItemSnippet.channelTitle,
                     channelId: firstItemSnippet.channelId,
                     playlistId: firstItemSnippet.playlistId,
-                    items: videoItems, // Assign the mapped video items
+                    items: videoItems,
                 };
 
-                // Add the newly created object to our results array
                 acc.push(channelObject);
             }
 
             return acc;
-        }, []); // The initial value is now an empty array []
+        }, []);
 
         return this.channelsListWithVideoDetails;
     }
 
+    /**
+     * Extract video topics of each channel's videos
+     */
     extractVideosTopics() {
         this.channelsListWithTopics = this.videoList.reduce((acc: any, videoListItem: any) => {
-            // Check if the promise was fulfilled and contains a value
             if (videoListItem.status === 'fulfilled' && videoListItem.value) {
-                // Iterate over each video object in the value array
                 videoListItem.value.forEach((videoItem: any) => {
                     const { channelTitle, title } = videoItem.snippet;
 
-                    // If the channelName doesn't exist as a key in accumulator object, create it
+                    // If the channelName doesn't exist as a key, create it
                     if (!acc[channelTitle]) {
                         acc[channelTitle] = [];
                     }
@@ -73,16 +73,6 @@ export class VideoListArranger {
     }
 
     async topicComparison(videoTitles: VideoListItem[], syllabusTopics: CookedTopics) {
-        // Get VIDEO TITLES and SYLLABUS TOPICS
-
-        /**
-         * Pass it to LLM :
-         *  1) To Compare and then GET,
-         *  2) How many topics from SYLLABUS matches that of VIDEOS' Titles and then 
-         *     GET:
-         *      i) MATCHED TOPICS ( with quantity )
-         *      ii) UNMATCHED TOPICS ( with quantity )
-         */
         const payload = {
             syllabus_topics: syllabusTopics,
             channel_topics: videoTitles
