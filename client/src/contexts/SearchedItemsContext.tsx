@@ -22,9 +22,9 @@ function SearchedItemsProvider({ children }) {
     }
         */
 
-    return <SearchedItemsContext.Provider value={{ searchedItems, isLoading }}>
-        {children}
-    </SearchedItemsContext.Provider>
+    return <SearchedItemsContext.Provider value={ { searchedItems, isLoading } }>
+        { children }
+        </SearchedItemsContext.Provider>
 }
 
 function useSearchedItems() {
