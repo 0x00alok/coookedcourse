@@ -18,7 +18,7 @@ class CookedCourseAgent(ExtractTopics):
         # )
         
         llm = init_chat_model(
-            "llama-3.3-70b-versatile",
+            "openai/gpt-oss-20b",
             model_provider="groq",
         )
 

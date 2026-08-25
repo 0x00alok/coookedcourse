@@ -56,23 +56,23 @@ async def analyze_topics(payload: YTAndSyllabusTopics):
         channel_topics = payload.channel_topics
         
         llm = init_chat_model(
-            "llama-3.3-70b-versatile",
+            "openai/gpt-oss-20b",
             model_provider="groq",
         )
         
-        structured_llm = llm.with_structured_output(AnalysisResponse)
+        structured_llm = llm.with_structured_output(AnalysisResponse, method="json_schema")
+        
+        course_topics_prompt_template = PromptTemplate(
+            input_variables=["syllabus_units", "playlist_video_titles"], 
+            template=SYLLABUS_ANALYSIS_PROMPT
+        )
+        
+        chain = course_topics_prompt_template | structured_llm
         
         aggregated_llm_res = []
         
         # Iterate over Playlists
-        for channel_name, video_titles in list(channel_topics.items())[:MAX_PLAYLISTS_TO_ITERATE]:
-            course_topics_prompt_template = PromptTemplate(
-                input_variables=["syllabus_units", "playlist_video_titles"], 
-                template=SYLLABUS_ANALYSIS_PROMPT
-            )
-        
-            chain = course_topics_prompt_template | structured_llm
-        
+        for channel_name, video_titles in list(channel_topics.items())[:MAX_PLAYLISTS_TO_ITERATE]:        
             res = chain.invoke(
                 input={
                     "syllabus_units": syllabus_topics, 
