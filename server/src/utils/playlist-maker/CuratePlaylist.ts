@@ -3,6 +3,7 @@ import { CK_CHANNELS_WITH_VIDEOS_DETAILS, CK_CHANNELS_WITH_VIDEOS_TITLES, CK_COO
 import { extractPlaylistIds, fetchAllVideosWithRetry, fetchPlaylistsOfSubject } from './playlistMakerUtils';
 import { VideoDataExtractor } from './VideoDataExtractor';
 import type { QueryString, VideoListItem } from '../../types/playlistMaker';
+import { AnalyzedTopicsMapper } from './AnalyzedTopicsMapper';
 
 export class CuratePlaylist {
     private topics;
@@ -77,41 +78,8 @@ export class CuratePlaylist {
         analyzedTopics = JSON.parse(await redisClient.get('analyzed-topics-llm-response') || '')
 
         // Store matchedVideoTitles with their videoId(s)
-        const analyzedTopicsToSave = analyzedTopics.flatMap((analyzedTopic) => {
-            // Channel details that is to be processed
-            const channel = channelListWithVideoDetails.find(
-                (c) => c.channelName === analyzedTopic.channelName
-            );
-
-            return analyzedTopic.analyzedPlaylistData.sylabus_analysis.map(analysis => {
-                // Find chapter data
-                const chapterData = chaptersData.find(
-                    c => c.name === analysis.unit_name
-                )
-
-                // Map the matched video titles to their respective YT IDs
-                const matchedVideos = channel
-                    ? channel.items
-                        .filter((video) => analysis.matched_videos_titles.includes(video.title))
-                        .map((video) => ({
-                            ytVideoTitle: video.title,
-                            ytVideoId: video.videoId,
-                        }))
-                    : [];
-
-                return {
-                    channelName: analyzedTopic.channelName,
-                    matchedSyllabusTopics: analysis.matched_videos_titles,
-                    unmatchedSyllabusTopics: analysis.unmatched_topics,
-                    unitCoveragePercentage: analysis.unit_coverage_percentage,
-                    chapterId: chapterData.id,
-                    matchedYoutubeTitles: {
-                        create: matchedVideos
-                    }
-                }
-            }
-            )
-        })
+        const mapper = new AnalyzedTopicsMapper(channelListWithVideoDetails, chaptersData);
+        const analyzedTopicsToSave = mapper.map(analyzedTopics);
 
         // const finalAnalyzedTopics = new APIFeature(analyzedTopics as unknown as CollegeAnalysis[], query).calculateFields().filter().sort().limitFields().paginate();
 
