@@ -1,22 +1,15 @@
-import { useState } from 'react'
+import { INK, MUTED, HAIRLINE } from '@/constants/colors';
 
-export default function YTChannelSelect() {
-  const [activeFilter, setActiveFilter] = useState("Akshay Saini");
-
-  const filters = ["Akshay Saini", "Trouble Free", "CampusX", "Gate Smashers"];
-
-  const INK = "#12151B";
-  const MUTED = "#6E7180";
-  const HAIRLINE = "#E7E8E3";
-
+export default function YTChannelSelect({ navChannels, onChannelSelect, activeChannelIndex }) {
   return (
     <div className="flex items-center gap-2 mb-8 flex-wrap">
-      {filters.map((f) => {
-        const isActive = activeFilter === f;
+      {navChannels.map((f, i) => {
+        const isActive = activeChannelIndex === i;
+
         return (
           <button
             key={f}
-            onClick={() => setActiveFilter(f)}
+            onClick={() => onChannelSelect(i)}
             className="rounded-full text-xs font-medium px-3.5 py-1.5 transition border"
             style={
               isActive

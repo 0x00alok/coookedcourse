@@ -1,24 +1,22 @@
-import { Badge } from '@/components/ui/badge';
 import IsoDoodles from './IsoDoodles';
+import {
+  INK,
+  MUTED,
+  PAPER,
+  HAIRLINE,
+  TEAL,
+  TEAL_BRIGHT,
+  AMBER,
+  PANEL_BG,
+  HERO_BG,
+  LIME,
+  LIME_SOFT
+} from '@/constants/colors';
+
+import { Badge } from '@/components/ui/badge';
 import { MoreVertical, Play, Users } from 'lucide-react';
 
-export default function MatchHeroCard({ match }) {
-  const [firstWord, ...rest] = match.unit.split(" ");
-  const restText = rest.join(" ");
-
-  const INK = "#12151B";
-  const MUTED = "#6E7180";
-  const PAPER = "#F5F6F4";
-  const HAIRLINE = "#E7E8E3";
-  const TEAL = "#0E7C66";
-  const TEAL_BRIGHT = "#2FD9B4";
-  const AMBER = "#D98E3B";
-
-  const PANEL_BG = "#F7F7F5";
-  const HERO_BG = "#EEF0EA";
-  const LIME = "#BEF264";
-  const LIME_SOFT = "#E3F6B8";
-
+export default function MatchHeroCard({ currentChannel, activeChapterIndex, currentChapter }) {
   return (
     <div
       className="rounded-[26px] overflow-hidden"
@@ -42,7 +40,7 @@ export default function MatchHeroCard({ match }) {
               className="font-semibold"
               style={{ background: LIME_SOFT, padding: "1px 5px", borderRadius: 4 }}
             >
-              {firstWord} {restText}
+              Unit {activeChapterIndex}
             </span>{" "}
             right now.
           </p>
@@ -55,7 +53,7 @@ export default function MatchHeroCard({ match }) {
           style={{ background: LIME }}
         >
           <span className="text-sm font-bold" style={{ color: INK }}>
-            {match.initials}
+            {/* {currentChannel.charAt(0).toUpperCase()} */}
           </span>
         </div>
       </div>
@@ -63,19 +61,19 @@ export default function MatchHeroCard({ match }) {
       <div className="px-5 pt-3 pb-5">
         <div className="flex items-center gap-2">
           <h3 className="text-[15px] font-semibold" style={{ color: INK }}>
-            {match.channel}
+            {currentChannel}
           </h3>
-          <Badge
+          {/* <Badge
             variant="secondary"
             className="text-[10px] font-medium px-2 py-0 h-5 rounded-full border-0"
             style={{ background: "#EFF0EC", color: MUTED }}
           >
             {match.level}
-          </Badge>
+          </Badge> */}
         </div>
 
         <p className="text-sm mt-1.5 leading-relaxed" style={{ color: MUTED }}>
-          {match.topic}
+          {currentChapter?.name}
         </p>
       </div>
 
@@ -87,12 +85,12 @@ export default function MatchHeroCard({ match }) {
           style={{ background: "#FFFFFF", border: `1px solid ${HAIRLINE}`, color: INK }}
         >
           <Play size={14} fill={INK} />
-          Preview video
+          Preview Playlist
         </button>
 
         <div className="flex items-center gap-1.5 text-xs" style={{ color: MUTED }}>
           <Users size={13} />
-          {match.subs}
+          {1.2}M subscribers
         </div>
       </div>
     </div>

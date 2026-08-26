@@ -1,271 +1,140 @@
-import { useState, useEffect } from "react";
+import { useEffect, useState } from 'react';
 import { useLocation } from 'react-router-dom';
 
-import VideoInsight from '../components/CookedPlaylist/VideoInsight';
-import PlaylistsViewerSidebar from '../components/CookedPlaylist/PlylistsViewerSidebar';
-import PlaylistViewerHeader from '../components/CookedPlaylist/PlaylistViewerHeader';
-import { generateCourse } from '../services/generateCourse';
-import PlaylistInsight from '../components/CookedPlaylist/PlaylistInsight';
+import UnitTitleHeader from '@/components/CookedPlaylist/UnitTitleHeader';
+import UnitRail from '@/components/CookedPlaylist/UnitRail';
+import SearchTopic from '@/components/SearchTopic';
+import YTChannelSelect from '@/components/CookedPlaylist/YTChannelSelect';
+import SortUnit from '@/components/CookedPlaylist/SortUnit';
+import YTTopicCard from '@/components/CookedPlaylist/YTTopicCard';
+import UnitDetailsCard from '@/components/CookedPlaylist/UnitDetailsCard';
+import Sidebar from '@/components/Sidebar';
+import { generateCourse } from '@/services/generateCourse';
+import { PAPER } from '@/constants/colors'
 
-export default function DisplayCookedCourse() {
-    const [navChapters, setNavChapters] = useState([]);
-    const [navSubTopics, setNavSubTopics] = useState([])
-    const [channels, setChannels] = useState([]);
-    const [analysisMap, setAnalysisMap] = useState({});
-    const [status, setStatus] = useState("loading");
-    const [activePlaylistIndex, setActivePlaylistIndex] = useState(0);
+export default function TestCp() {
+    const [navChannels, setNavChannels] = useState([]);
+    const [chapters, setChapters] = useState([]);
+    const [activeChannelIndex, setActiveChannelIndex] = useState(0);
     const [activeChapterIndex, setActiveChapterIndex] = useState(0);
-    const [selectedVideo, setSelectedVideo] = useState(null);
-    const [isPlaylistInsightVisible, setIsPlaylistInsightVisible] = useState(true);
+    const [analysisMap, setAnalysisMap] = useState({});
 
-    const courseDataToPost = useLocation().state;
+    const [isLoading, setIsLoading] = useState(true);
+    const [error, setError] = useState(false);
 
-    useEffect(() => {
-        async function fetchPlaylists() {
-            try {
-                setStatus("loading");
+    // Course data to fetch 
+    // const courseDataToPost = useLocation().state;
+    const courseDataToPost = {
+        subject: 'AI',
+        syllabus: { 'Unit1': 'Knowledge Representation: Approaches and issues in knowledge representation, Knowledge Based Agents, Propositional Logic, Predicate Logic- Unification and Resolution, Weak slot –Filler Structure Strong slot- Filler structure' },
+        client: "a2d2253e-1cd1-4ac7-bd9a-3b180902fd94"
+    };
 
-                const res = await generateCourse(courseDataToPost.data);
-                const responseData = res.data ? res.data : res;
-                console.log(responseData)
-                if (responseData.message === "success") {
-                    setNavChapters(responseData.navChapters || []);
-                    setChannels(responseData.channels || []);
-                    setAnalysisMap(responseData.analysisMap || {});
-                    setStatus("success");
-                } else {
-                    setStatus("error");
-                }
-            } catch (err) {
-                console.error(err);
-                setStatus("error");
-            }
-        }
+    const currentChapter = chapters[activeChapterIndex] || null;
+    const currentChannel = navChannels[activeChannelIndex] || null;
 
-        fetchPlaylists();
-    }, []);
-
-    const currentChannel = channels[activePlaylistIndex] || "";
-    const currentChapter = navChapters[activeChapterIndex] || null;
-    const { matchedSyllabusTopics, unmatchedSyllabusTopics } = analysisMap[currentChannel]?.[currentChapter.id] || {};
-
-    // Extract data node matching current selection
     const currentAnalysis = (currentChannel && currentChapter)
         ? analysisMap[currentChannel]?.[currentChapter.id]
         : null;
 
-    const rawVideos = currentAnalysis?.videos || [];
-    const rawFallbackVideos = currentAnalysis?.fallbackVideos || []; // unmatched topics
+    const { matchedSyllabusTopics, unmatchedSyllabusTopics } = currentAnalysis ? currentAnalysis : { matchedSyllabusTopics: [], unmatchedSyllabusTopics: [] };
 
-    // Data expected by VideoInsight
-    const videos = rawVideos.map((video) => ({
-        id: video.ytVideoId,
-        title: video.ytVideoTitle,
-        insight: `This video directly addresses core items under ${currentChapter?.name}. Covered topics: ${(currentAnalysis?.matchedSyllabusTopics || []).slice(0, 2).join(', ')}.`,
-        coveragePct: currentAnalysis?.unitCoveragePercentage || 0,
-        duration: "10 mins",
-        timestamps: [
-            { t: "0:00", label: "Topic Introduction" },
-            { t: "4:30", label: "Core Core Concept & Example Walkthrough" }
-        ]
-    }));
+    const rawVideos = currentAnalysis?.videos || [];
+    const rawFallbackVideos = currentAnalysis?.fallbackVideos || [];
+
+    const videos = rawVideos.map((vid) => ({
+        id: vid.ytVideoId,
+        title: vid.ytVideoTitle,
+        duration: `${Math.random() * (15 - 1) + 1} mins`,
+        viewCount: `${Math.random() * (15 - 1) + 1}k`,
+        channel: currentChannel,
+        unit: activeChapterIndex,
+        thumbnail: `https://img.youtube.com/vi/${vid.ytVideoId}/hqdefault.jpg`,
+    }))
 
     const fallbackVideos = rawFallbackVideos.map((video) => ({
         id: video.ytVideoId,
         title: video.ytVideoTitle,
         topicName: video.topicName,
+        duration: `${Math.random() * (15 - 1) + 1} mins`,
+        viewCount: `${Math.random() * (15 - 1) + 1}k`,
         insight: `Automated dynamic recovery video brought in to fully cover the missed syllabus topic: "${video.topicName}".`,
-        coveragePct: 100, // Explicit single target topic resolution
-        duration: "Quick Study",
+        coveragePct: 100,
         isFallback: true,
         timestamps: [
             { t: "0:00", label: `Explaining ${video.topicName}` }
         ]
     }));
 
-    const adaptedPlaylists = channels.map((channel) => {
-        let cumulativeCoverage = 0;
-        navChapters.forEach((ch) => {
-            cumulativeCoverage += analysisMap[channel]?.[ch.id]?.unitCoveragePercentage || 0;
-        });
-
-        return {
-            collegeName: channel,
-            overallCoverage: navChapters.length ? Math.round(cumulativeCoverage / navChapters.length) : 0
-        };
-    });
-
-    const adaptedCurrentPlaylist = {
-        units: navChapters.map((chapter) => ({
-            id: chapter.id,
-            unitName: chapter.name,
-            topics: [{ id: chapter.id, topicName: `${chapter.name} Overview` }]
-        }))
-    };
-
-    const adaptedActiveSelection = {
-        unitIndex: activeChapterIndex,
-        topicIndex: 0
-    };
-
-    function handlePlaylistSelect(index) {
-        setActivePlaylistIndex(index);
+    function handleChannelSelect(index) {
+        setActiveChannelIndex(index);
         setActiveChapterIndex(0);
-        setSelectedVideo(null);
     }
 
-    function handleTopicSelect(unitIndex) {
+    function handleChapterSelect(unitIndex) {
         setActiveChapterIndex(unitIndex);
-        setSelectedVideo(null);
     }
 
-    if (status === "loading") {
-        return (
-            <div className="h-screen flex items-center justify-center text-sm text-slate-500">
-                Loading playlists...
-            </div>
-        );
-    }
+    useEffect(() => {
+        async function fetchPlaylists() {
+            try {
+                setIsLoading(true);
 
-    if (status === "error") {
-        return (
-            <div className="h-screen flex items-center justify-center text-sm text-red-500">
-                Failed to load playlists.
-            </div>
-        );
-    }
+                const res = await generateCourse(courseDataToPost);
+                const resData = res.data ? res.data : res;
+                console.log(resData);
+
+                if (resData.message === 'success') {
+                    setNavChannels(res.channels || []);
+                    setChapters(res.navChapters || [])
+                    setAnalysisMap(resData.analysisMap || {});
+                }
+            } catch (err) {
+                setError(err.message);
+                console.error(err);
+            } finally {
+                setIsLoading(false);
+            }
+        }
+
+        fetchPlaylists();
+    }, []);
 
     return (
-        <div className="flex h-screen bg-white font-mono text-slate-900">
-            <PlaylistsViewerSidebar
-                currentPlaylist={adaptedCurrentPlaylist}
-                activeSelection={adaptedActiveSelection}
-                onTopicSelect={(unitIndex, _) => handleTopicSelect(unitIndex)}
-                matchedSyllabusTopics={matchedSyllabusTopics}
-                unmatchedSyllabusTopics={unmatchedSyllabusTopics}
-            />
-            <main className="flex-1 flex flex-col overflow-hidden">
-                <PlaylistViewerHeader
-                    playlists={adaptedPlaylists}
-                    onPlaylistSelect={handlePlaylistSelect}
-                    activePlaylist={activePlaylistIndex}
-                />
+        <div className="min-h-screen overflow-x-hidden font-nunito" style={{ background: PAPER }}>
+            <Sidebar />
 
-                {isPlaylistInsightVisible && <PlaylistInsight />}
+            {/* Main Content */}
+            <div className="ml-16 flex overflow-x-hidden">
+                <div className="flex-1 min-w-0 px-10 py-8">
+                    <UnitTitleHeader />
 
-                <div className="flex-1 relative overflow-hidden">
-                    <div className="h-full overflow-y-auto px-5 py-5">
+                    <SearchTopic />
 
-                        <div className="flex items-baseline gap-2 mb-6">
-                            <h2 className="text-sm font-medium">
-                                {currentChapter?.name} Overview
-                            </h2>
+                    <YTChannelSelect
+                        navChannels={navChannels}
+                        onChannelSelect={handleChannelSelect}
+                        activeChannelIndex={activeChannelIndex}
+                    />
 
-                            <span className="text-xs text-slate-400">
-                                {videos.length} core videos {fallbackVideos.length > 0 && `+ ${fallbackVideos.length} fallback additions`}
-                            </span>
+                    <UnitRail
+                        chapters={chapters}
+                        onChapterSelect={handleChapterSelect} activeChapterIndex={activeChapterIndex}
+                    />
 
-                            <div>
-                                <button
-                                    className='ml-4 text-xs bg-gray-800 p-2 text-white rounded-lg hover:cursor-pointer'
-                                    onClick={() => setIsPlaylistInsightVisible((prev) => !prev)}
-                                >
-                                    Show Details
-                                </button>
-                            </div>
-                        </div>
-                        <div className="divide-y divide-slate-100">
-                            {videos.map((video) => (
-                                <div
-                                    key={video.id}
-                                    className="flex items-start gap-3 py-4 cursor-pointer group"
-                                    onClick={() => setSelectedVideo(video)}
-                                >
-                                    <div className="w-16 h-10 shrink-0 bg-slate-50 border border-slate-100 rounded flex items-center justify-center">
-                                        <svg width="10" height="12" viewBox="0 0 10 12" fill="none" >
-                                            <polygon points="0,0 10,6 0,12" fill="#d4d4d8" />
-                                        </svg>
-                                    </div>
+                    <SortUnit />
 
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-medium text-slate-700 group-hover:text-slate-900 transition-colors mb-1 leading-snug">
-                                            {video.title}
-                                        </p>
-
-                                        <p className="text-[11px] text-slate-400 mb-2">
-                                            {video.duration}
-                                        </p>
-
-                                        <button
-                                            className="text-[11px] text-slate-400 hover:text-slate-700 transition-colors flex items-center gap-1"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedVideo(video);
-                                            }}
-                                        >
-                                            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.2">
-                                                <circle cx="5.5" cy="5.5" r="4.5" />
-                                                <path d="M5.5 3.5v2.5M5.5 7.5v.2" strokeLinecap="round" />
-                                            </svg>
-                                            Why this?
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-
-                            {fallbackVideos.map((video) => (
-                                <div
-                                    key={video.id}
-                                    className="flex items-start gap-3 py-4 cursor-pointer group"
-                                    onClick={() => setSelectedVideo(video)}
-                                >
-                                    <div className="w-16 h-10 shrink-0 bg-slate-50 border border-slate-100 rounded flex items-center justify-center">
-                                        <svg width="10" height="12" viewBox="0 0 10 12" fill="none" >
-                                            <polygon points="0,0 10,6 0,12" fill="#d4d4d8" />
-                                        </svg>
-                                    </div>
-
-                                    <div className="flex-1 min-w-0">
-                                        <p className="text-xs font-medium text-slate-700 group-hover:text-slate-900 transition-colors mb-1 leading-snug">
-                                            {video.title}
-                                        </p>
-
-                                        <p className="text-[11px] text-slate-400 mb-2">
-                                            {video.duration}
-                                        </p>
-
-                                        <button
-                                            className="text-[11px] text-slate-400 hover:text-slate-700 transition-colors flex items-center gap-1"
-                                            onClick={(e) => {
-                                                e.stopPropagation();
-                                                setSelectedVideo(video);
-                                            }}
-                                        >
-                                            <svg width="11" height="11" viewBox="0 0 11 11" fill="none" stroke="currentColor" strokeWidth="1.2">
-                                                <circle cx="5.5" cy="5.5" r="4.5" />
-                                                <path d="M5.5 3.5v2.5M5.5 7.5v.2" strokeLinecap="round" />
-                                            </svg>
-                                            Why this?
-                                        </button>
-                                    </div>
-                                </div>
-                            ))}
-
-                            {videos.length === 0 && (
-                                <div className="text-xs text-slate-400 py-6 text-center">
-                                    No matched videos found for this chapter.
-                                </div>
-                            )}
-                        </div>
-                    </div>
-                    {selectedVideo && (
-                        <VideoInsight
-                            video={selectedVideo}
-                            onClose={() => setSelectedVideo(null)}
-                        />
-                    )}
+                    <YTTopicCard videos={videos} fallbackVideos={fallbackVideos} />
                 </div>
-            </main>
+
+                <UnitDetailsCard
+                    matchedSyllabusTopics={matchedSyllabusTopics}
+                    unmatchedSyllabusTopics={unmatchedSyllabusTopics}
+                    activeChapterIndex={activeChapterIndex}
+                    currentChannel={currentChannel}
+                    currentChapter={currentChapter}
+                />
+            </div>
         </div>
     );
 }
