@@ -13,9 +13,26 @@ export class VideoDataExtractor {
     }
 
     /**
+     * Extracts all unique video IDs from raw playlist items
+     */
+    getAllVideoIds(): string[] {
+        const ids: string[] = [];
+        this.videoList.forEach((playlistResult: any) => {
+            if (playlistResult.status === 'fulfilled' && playlistResult.value) {
+                playlistResult.value.forEach((item: any) => {
+                    if (item.contentDetails?.videoId) {
+                        ids.push(item.contentDetails.videoId);
+                    }
+                });
+            }
+        });
+        return ids;
+    }
+
+    /**
      * Extracts details of each channel's video
      */
-    extractVideosDetails() {
+    extractVideosDetails(statsMap: Record<string, any> = {}) {
         this.channelsListWithVideoDetails = this.videoList.reduce((acc: any, videDetailsItem: any) => {
             if (
                 videDetailsItem.status === 'fulfilled' && videDetailsItem.value
@@ -24,10 +41,16 @@ export class VideoDataExtractor {
                 const firstItemSnippet = apiResponse[0].snippet;
 
                 const videoItems = apiResponse.map((item: any) => {
+                    const vId = item.contentDetails.videoId;
+                    const metrics = statsMap[vId] || { viewCount: "0", durationInSeconds: 0, durationIso: "PT0S" };
+
                     return {
                         itemId: item.id,
                         title: item.snippet.title,
-                        videoId: item.contentDetails.videoId,
+                        videoId: vId,
+                        viewCount: metrics.viewCount,
+                        durationInSeconds: metrics.durationInSeconds,
+                        durationIso: metrics.durationIso
                     };
                 });
 

@@ -1,6 +1,6 @@
 import { getRedisClient } from '../redis-client/getRedisClient';
 import { CK_CHANNELS_WITH_VIDEOS_DETAILS, CK_CHANNELS_WITH_VIDEOS_TITLES, CK_COOKED_PLAYLIST_LIST, CK_COOKED_PLAYLIST_VIDEOS_LIST } from '../../constants/constants';
-import { extractPlaylistIds, fetchAllVideosWithRetry, fetchPlaylistsOfSubject } from './playlistMakerUtils';
+import { extractPlaylistIds, fetchAllVideosWithRetry, fetchPlaylistsOfSubject, fetchVideosStatisticsBatch } from './playlistMakerUtils';
 import { VideoDataExtractor } from './VideoDataExtractor';
 import type { QueryString, VideoListItem } from '../../types/playlistMaker';
 import { AnalyzedTopicsMapper } from './AnalyzedTopicsMapper';
@@ -58,14 +58,16 @@ export class CuratePlaylist {
             // Arrange Video List
             vla = new VideoDataExtractor(vidoesItems);
 
+            const allVideosIds = vla.getAllVideoIds();
+            const statsMap = await fetchVideosStatisticsBatch(allVideosIds, process.env.YOUTUBE_API!);
+
             channelsListWithTopics = vla.extractVideosTopics()!;
             await redisClient.set(`${CK_CHANNELS_WITH_VIDEOS_TITLES}#${clientToken}`, JSON.stringify(channelsListWithTopics))
-            await redisClient.set(`${CK_CHANNELS_WITH_VIDEOS_DETAILS}#${clientToken}`, JSON.stringify(vla.extractVideosDetails()))
+            await redisClient.set(`${CK_CHANNELS_WITH_VIDEOS_DETAILS}#${clientToken}`, JSON.stringify(vla.extractVideosDetails(statsMap)))
         }
 
         channelsListWithTopics = JSON.parse((await redisClient.get(`${CK_CHANNELS_WITH_VIDEOS_TITLES}#${clientToken}`))!)
 
-        // TODO: Will SEND accordingly
         const channelListWithVideoDetails = JSON.parse((await redisClient.get(`${CK_CHANNELS_WITH_VIDEOS_DETAILS}#${clientToken}`))!);
 
         let analyzedTopics;

@@ -70,7 +70,7 @@ export const createCourse = async (
   })
 
   // Memory store to capture freshly fetched fallback configurations
-  const fallbackInMemoryMap: Record<string, Array<{ topicName: string; ytVideoTitle: string; ytVideoId: string }>> = {};
+  const fallbackInMemoryMap: Record<string, Array<{ topicName: string; ytVideoTitle: string; ytVideoId: string, viewCount: string, duration: number }>> = {};
 
   if (Object.keys(playlistGenerationTopics).length !== 0) {
     // Map unique unmatched topics ONLY if they have not been processed previously
@@ -100,12 +100,14 @@ export const createCourse = async (
       const savedFallbackVideos = analysis.fallbackVideos?.map(fb => ({
         topicName: fb.topicName,
         ytVideoTitle: fb.ytVideoTitle,
-        ytVideoId: fb.ytVideoId
+        ytVideoId: fb.ytVideoId,
+        viewCount: (fb as any).viewCount || '0',
+        duration: (fb as any).duration || 0
       })) || [];
 
       const freshFallbackVideos = fallbackInMemoryMap[analysis.id] || [];
 
-      const combinedFallbacksMap = new Map<string, { topicName: string; ytVideoTitle: string; ytVideoId: string }>();
+      const combinedFallbacksMap = new Map<string, { topicName: string; ytVideoTitle: string; ytVideoId: string, viewCount: string, duration: number }>();
       [...savedFallbackVideos, ...freshFallbackVideos].forEach(item => {
         combinedFallbacksMap.set(item.topicName.toLowerCase().trim(), item);
       });
@@ -118,7 +120,9 @@ export const createCourse = async (
         unmatchedSyllabusTopics: analysis.unmatchedSyllabusTopics,
         videos: analysis.matchedYoutubeTitles.map(vid => ({
           ytVideoTitle: vid.ytVideoTitle,
-          ytVideoId: vid.ytVideoId
+          ytVideoId: vid.ytVideoId,
+          viewCount: vid.viewCount || '0',
+          duration: vid.duration || 0
         })),
         fallbackVideos: Array.from(combinedFallbacksMap.values())
       };

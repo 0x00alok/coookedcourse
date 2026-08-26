@@ -17,6 +17,8 @@ export class ChannelUtils {
       .map((video) => ({
         ytVideoTitle: video.title,
         ytVideoId: video.videoId,
+        viewCount: video.viewCount || '0',
+        duration: video.durationInSeconds || 0,
       }));
   }
 }
