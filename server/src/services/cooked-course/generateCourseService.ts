@@ -1,4 +1,3 @@
-import { CookedTopics } from '../../types/cookedcourse';
 import prisma from '../../utils/prisma-client/getPrismaClient';
 import { PlaylistMaker } from '../../utils/playlist-maker/PlaylistMaker';
 import { extractSyllabusTopics } from '../llm/agentService';
@@ -6,7 +5,7 @@ import { saveTopicsToDB } from './cookedcourseDbService';
 import { getRedisClient } from '../../utils/redis-client/getRedisClient';
 import { unmatchedTopicsToVideosMapper } from '../../utils/playlist-maker/fallbackVideosUtils';
 
-
+// TODO: Create a Class which deals with YT Api
 export const createCourse = async (
   toExtractTopicsOfChapters,
   toAnalyzeChapters,
@@ -16,26 +15,14 @@ export const createCourse = async (
   query
 ) => {
   console.log(toExtractTopicsOfChapters, alreadyExtractedChapters)
-  let extractedTopics: CookedTopics = {};
 
   // GET Topics of SYLLABUS from AI-AGENT, if course has not been generated
   // for the same SYLLABUS or UNITS
   if (toExtractTopicsOfChapters.length !== 0) {
-    let newExtractedTopics: string | "";
-    if (!(await (await getRedisClient()).get(`new-extracted-topics#${clientId}`))) {
-      newExtractedTopics = await extractSyllabusTopics(toExtractTopicsOfChapters);
-      (await getRedisClient()).set(`new-extracted-topics#${clientId}`, JSON.stringify(newExtractedTopics))
-    }
-
-    const cachedExtractedTopics = await (await getRedisClient()).get(`new-extracted-topics#${clientId}`)
-
-    newExtractedTopics = cachedExtractedTopics ? JSON.parse(cachedExtractedTopics) : null;
-
-    await saveTopicsToDB(toExtractTopicsOfChapters, newExtractedTopics);
+    _extractChapterTopicsUsingLLM(toExtractTopicsOfChapters, clientId);
   }
 
   const subject: string = currSubject;
-
   const playlistGenerationTopics = [...toExtractTopicsOfChapters, ...toAnalyzeChapters];
 
   const playlistGenerationTopicsData = await prisma.chapter.findMany({
@@ -49,11 +36,7 @@ export const createCourse = async (
 
   // Playlist Maker Instance
   if (playlistGenerationTopics.length !== 0) {
-    const pm = new PlaylistMaker(playlistGenerationTopicsData, subject);
-    const { analyzedTopicsToSave } = await pm.fetchPlaylistVideos(clientId, query, playlistGenerationTopicsData);
-
-    const insertPromises = analyzedTopicsToSave.map(analyzedTopic => prisma.chapterAnalysis.create({ data: analyzedTopic }))
-    await prisma.$transaction(insertPromises);
+    _generatePlaylistsUsingLLM(playlistGenerationTopicsData, subject, clientId, query);
   }
 
   // fetch all chapters from DB
@@ -130,4 +113,26 @@ export const createCourse = async (
   });
 
   return { navChapters, uniqueChannels, analysisMap }
+}
+
+const _extractChapterTopicsUsingLLM = async (toExtractTopicsOfChapters, clientId) => {
+  let newExtractedTopics: string | "";
+  if (!(await (await getRedisClient()).get(`new-extracted-topics#${clientId}`))) {
+    newExtractedTopics = await extractSyllabusTopics(toExtractTopicsOfChapters);
+    (await getRedisClient()).set(`new-extracted-topics#${clientId}`, JSON.stringify(newExtractedTopics))
+  }
+
+  const cachedExtractedTopics = await (await getRedisClient()).get(`new-extracted-topics#${clientId}`)
+
+  newExtractedTopics = cachedExtractedTopics ? JSON.parse(cachedExtractedTopics) : null;
+
+  await saveTopicsToDB(toExtractTopicsOfChapters, newExtractedTopics);
+}
+
+const _generatePlaylistsUsingLLM = async (playlistGenerationTopicsData, subject, clientId, query) => {
+  const pm = new PlaylistMaker(playlistGenerationTopicsData, subject);
+  const { analyzedTopicsToSave } = await pm.fetchPlaylistVideos(clientId, query, playlistGenerationTopicsData);
+
+  const insertPromises = analyzedTopicsToSave.map(analyzedTopic => prisma.chapterAnalysis.create({ data: analyzedTopic }))
+  await prisma.$transaction(insertPromises);
 }
