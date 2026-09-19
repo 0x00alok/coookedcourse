@@ -3,16 +3,12 @@ import { LLMPassedSyllabusYoutubeTopics } from '../../types/playlistMaker';
 import { CK_COOKED_PLAYLIST_LIST } from '../../constants/constants';
 import { fetchTemplate } from '../redis-client/checkExistsInCache';
 
-/**
- * Returns playlist ids
- */
+// Returns playlist ids
 export const extractPlaylistIds = (playlists: any[]): string[] => {
     return playlists.map((playlist: any) => playlist.id.playlistId)
 }
 
-/**
- * Funtion to return all playlists of related subject 
- */
+// Funtion to return all playlists of related subject 
 export const fetchPlaylistsOfSubject = async (token: string, SEARCH_PLAYLIST_URL: string) => {
     // TODO: Better Key Generation
     const cacheKey = `${token}#${CK_COOKED_PLAYLIST_LIST}`
@@ -22,9 +18,7 @@ export const fetchPlaylistsOfSubject = async (token: string, SEARCH_PLAYLIST_URL
     return playlistsItem;
 }
 
-/**
- * A helper function that performs an axios GET request with a retry mechanism.
- */
+// Function that performs an axios GET request with a retry mechanism.
 export const axiosGetWithRetry = async (url: string, retries: number = 3) => {
     for (let attempt = 1; attempt <= retries; attempt++) {
         try {
@@ -36,15 +30,12 @@ export const axiosGetWithRetry = async (url: string, retries: number = 3) => {
                 // If this was the last attempt, throw the error
                 throw err;
             }
-            // Wait 1 second before the next attempt
             await new Promise(res => setTimeout(res, 1000));
         }
     }
 };
 
-/**
- * A helper function that performs an axios POST request with a retry mechanism
- */
+// Helper function that performs an axios POST request with a retry mechanism
 export const axiosPostWithRetry =
     async (url: string,
         payload: LLMPassedSyllabusYoutubeTopics,
@@ -65,9 +56,7 @@ export const axiosPostWithRetry =
         }
     }
 
-/**
- * Fetches all video items from a list of YouTube playlist URLs
- */
+// Fetches all video items from a list of YouTube playlist URLs
 export const fetchAllVideosWithRetry = (URLS: string[], retries = 3) => {
     const promises = URLS.map(url =>
         (async () => {
@@ -99,9 +88,7 @@ export const fetchAllVideosWithRetry = (URLS: string[], retries = 3) => {
     return Promise.allSettled(promises);
 };
 
-/**
- * Helper to fetch statistics for a list of video IDs in batches of 50
- */
+// Helper to fetch statistics for a list of video IDs in batches of 50
 export const fetchVideosStatisticsBatch = async (videoIds: string[], apiKey: string, retries = 3) => {
     const statsMap: Record<string, any> = {};
     if (!videoIds.length) return statsMap;

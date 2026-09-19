@@ -14,10 +14,12 @@ export const unmatchedTopicsToVideosMapper = async (allChapters, subject: string
   }
 }
 
+// TODO: Improve & Make Re-usable
 function _topicsToAnalysisMapper(topicToAnalysisMap, allChapters) {
   allChapters.forEach(chapter => {
     chapter.chapterAnalysis.forEach(analysis => {
       // If this analysis already has fallback entries in DB, skip generation entirely
+      // TODO: What if present fallback videos are partial ? 
       if (analysis.fallbackVideos && analysis.fallbackVideos.length > 0) {
         return;
       }

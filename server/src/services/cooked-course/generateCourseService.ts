@@ -14,8 +14,6 @@ export const createCourse = async (
   currSubject,
   query
 ) => {
-  console.log(toExtractTopicsOfChapters, alreadyExtractedChapters)
-
   // GET Topics of SYLLABUS from AI-AGENT, if course has not been generated
   // for the same SYLLABUS or UNITS
   if (toExtractTopicsOfChapters.length !== 0) {
@@ -53,18 +51,23 @@ export const createCourse = async (
   })
 
   // Memory store to capture freshly fetched fallback configurations
-  const fallbackInMemoryMap: Record<string, Array<{ topicName: string; ytVideoTitle: string; ytVideoId: string, viewCount: string, duration: number }>> = {};
+  const fallbackInMemoryMap: Record<
+    string,
+    Array<{
+      topicName: string;
+      ytVideoTitle: string;
+      ytVideoId: string,
+      viewCount: string,
+      duration: number
+    }>> = {};
 
-  if (Object.keys(playlistGenerationTopics).length !== 0) {
+  if (playlistGenerationTopics.length !== 0) {
     // Map unique unmatched topics ONLY if they have not been processed previously
     unmatchedTopicsToVideosMapper(allChapters, subject, fallbackInMemoryMap);
   }
 
-  // These are used for navigation, for now
-  const navChapters = allChapters.map(ch => ({
-    id: ch.id,
-    name: ch.name
-  }));
+  // Navigation chapters 
+  const navChapters = _generateNavigationChapters(allChapters);
 
   // Set to add only unique channels
   const uniqueChannels = new Set();
@@ -135,4 +138,11 @@ const _generatePlaylistsUsingLLM = async (playlistGenerationTopicsData, subject,
 
   const insertPromises = analyzedTopicsToSave.map(analyzedTopic => prisma.chapterAnalysis.create({ data: analyzedTopic }))
   await prisma.$transaction(insertPromises);
+}
+
+const _generateNavigationChapters = (allChapters) => {
+  return allChapters.map(ch => ({
+    id: ch.id,
+    name: ch.name
+  }));
 }

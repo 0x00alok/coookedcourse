@@ -3,7 +3,7 @@ import type { AnalyzedSyllabus, LLMPassedSyllabusYoutubeTopics, VideoListItem } 
 import { axiosPostWithRetry } from './playlistMakerUtils';
 
 export class VideoDataExtractor {
-    private videoList;
+    private videoList; // Raw yt data 
     private channelsListWithTopics?: VideoListItem[]
     private analyzedSyllabus?: AnalyzedSyllabus[];
     private channelsListWithVideoDetails?: any;
@@ -33,14 +33,15 @@ export class VideoDataExtractor {
      * Extracts details of each channel's video
      */
     extractVideosDetails(statsMap: Record<string, any> = {}) {
-        this.channelsListWithVideoDetails = this.videoList.reduce((acc: any, videDetailsItem: any) => {
+        this.channelsListWithVideoDetails = this.videoList.reduce((acc: any, videDetailsItem: any, i: number) => {
             if (
                 videDetailsItem.status === 'fulfilled' && videDetailsItem.value
             ) {
-                const apiResponse = videDetailsItem.value;
-                const firstItemSnippet = apiResponse[0].snippet;
+                const item = videDetailsItem.value;
+                const firstItemSnippet = item[i].snippet;
 
-                const videoItems = apiResponse.map((item: any) => {
+                // TODO: Better custom data extraction
+                const videoItems = item.map((item: any) => {
                     const vId = item.contentDetails.videoId;
                     const metrics = statsMap[vId] || { viewCount: "0", durationInSeconds: 0, durationIso: "PT0S" };
 

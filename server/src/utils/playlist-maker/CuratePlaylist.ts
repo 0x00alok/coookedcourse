@@ -49,7 +49,7 @@ export class CuratePlaylist {
         let vla: VideoDataExtractor = new VideoDataExtractor();
         let channelsListWithTopics: VideoListItem[] | undefined = undefined;
 
-        // Prior to making Request, Check curated items in cache
+        // TOD0: make this better
         if (!(await redisClient.get(`${CK_CHANNELS_WITH_VIDEOS_TITLES}#${clientToken}`))) {
             console.log("Storing api result in cache")
             // Fetch all the Videos List
