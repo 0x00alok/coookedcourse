@@ -1,7 +1,7 @@
 import axios from 'axios';
 import prisma from '../prisma-client/getPrismaClient';
 
-export const unmatchedTopicsToVideosMapper = async (allChapters, subject: string, fallbackInMemoryMap) => {
+export const unmatchedTopicsToVideosMapper = async (allChapters, subject: string) => {
   // Map unique unmatched topics ONLY if they have not been processed previously
   const topicToAnalysisMap = new Map<string, { topic: string; analysisIds: string[] }>();
 
@@ -10,7 +10,7 @@ export const unmatchedTopicsToVideosMapper = async (allChapters, subject: string
 
   // Only consume API quotas if there are un-cached elements left to process
   if (topicToAnalysisMap.size > 0) {
-    await _searchUnmatchedTopicVideo(topicToAnalysisMap, subject, fallbackInMemoryMap);
+    await _searchUnmatchedTopicVideo(topicToAnalysisMap, subject);
   }
 }
 
@@ -40,7 +40,7 @@ function _topicsToAnalysisMapper(topicToAnalysisMap, allChapters) {
   });
 }
 
-async function _searchUnmatchedTopicVideo(topicToAnalysisMap, subject, fallbackInMemoryMap) {
+async function _searchUnmatchedTopicVideo(topicToAnalysisMap, subject) {
   const fallbackPromises: any[] = [];
 
   for (const [_, item] of topicToAnalysisMap) {
@@ -69,12 +69,6 @@ async function _searchUnmatchedTopicVideo(topicToAnalysisMap, subject, fallbackI
               }
             })
           );
-
-          // Queue to runtime memory map for fast deployment to response
-          if (!fallbackInMemoryMap[analysisId]) {
-            fallbackInMemoryMap[analysisId] = [];
-          }
-          fallbackInMemoryMap[analysisId].push(videoData);
         });
       }
     } catch (error) {

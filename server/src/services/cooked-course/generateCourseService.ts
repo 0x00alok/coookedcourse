@@ -38,7 +38,7 @@ export const createCourse = async (
   }
 
   // fetch all chapters from DB
-  const allChapters = await prisma.chapter.findMany({
+  let allChapters = await prisma.chapter.findMany({
     where: { chapterData: { in: [...playlistGenerationTopics, ...alreadyExtractedChapters] } },
     include: {
       chapterAnalysis: {
@@ -50,28 +50,30 @@ export const createCourse = async (
     }
   })
 
-  // Memory store to capture freshly fetched fallback configurations
-  const fallbackInMemoryMap: Record<
-    string,
-    Array<{
-      topicName: string;
-      ytVideoTitle: string;
-      ytVideoId: string,
-      viewCount: string,
-      duration: number
-    }>> = {};
-
   if (playlistGenerationTopics.length !== 0) {
     // Map unique unmatched topics ONLY if they have not been processed previously
-    unmatchedTopicsToVideosMapper(allChapters, subject, fallbackInMemoryMap);
+    unmatchedTopicsToVideosMapper(allChapters, subject);
   }
 
   // Navigation chapters 
   const navChapters = _generateNavigationChapters(allChapters);
 
-  // Set to add only unique channels
+  // To add only unique channels
   const uniqueChannels = new Set();
   const analysisMap = {};
+
+  // Get updated chapters data
+  allChapters = await prisma.chapter.findMany({
+    where: { chapterData: { in: [...playlistGenerationTopics, ...alreadyExtractedChapters] } },
+    include: {
+      chapterAnalysis: {
+        include: {
+          matchedYoutubeTitles: true,
+          fallbackVideos: true
+        }
+      }
+    }
+  });
 
   allChapters.forEach(chapter => {
     chapter.chapterAnalysis.forEach(analysis => {
@@ -91,13 +93,6 @@ export const createCourse = async (
         duration: (fb as any).duration || 0
       })) || [];
 
-      const freshFallbackVideos = fallbackInMemoryMap[analysis.id] || [];
-
-      const combinedFallbacksMap = new Map<string, { topicName: string; ytVideoTitle: string; ytVideoId: string, viewCount: string, duration: number }>();
-      [...savedFallbackVideos, ...freshFallbackVideos].forEach(item => {
-        combinedFallbacksMap.set(item.topicName.toLowerCase().trim(), item);
-      });
-
       // Map data directly to the specific chapter ID
       analysisMap[channelName][chapter.id] = {
         analysisId: analysis.id,
@@ -110,7 +105,8 @@ export const createCourse = async (
           viewCount: vid.viewCount || '0',
           duration: vid.duration || 0
         })),
-        fallbackVideos: Array.from(combinedFallbacksMap.values())
+        // TODO: Fetch fallback videos with their respective topics
+        fallbackVideos: savedFallbackVideos
       };
     });
   });
