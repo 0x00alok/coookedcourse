@@ -17,7 +17,7 @@ export const createCourse = async (
   // GET Topics of SYLLABUS from AI-AGENT, if course has not been generated
   // for the same SYLLABUS or UNITS
   if (toExtractTopicsOfChapters.length !== 0) {
-    _extractChapterTopicsUsingLLM(toExtractTopicsOfChapters, clientId);
+    await _extractChapterTopicsUsingLLM(toExtractTopicsOfChapters, clientId);
   }
 
   const subject: string = currSubject;
@@ -34,7 +34,7 @@ export const createCourse = async (
 
   // Playlist Maker Instance
   if (playlistGenerationTopics.length !== 0) {
-    _generatePlaylistsUsingLLM(playlistGenerationTopicsData, subject, clientId, query);
+    await _generatePlaylistsUsingLLM(playlistGenerationTopicsData, subject, clientId, query);
   }
 
   // fetch all chapters from DB
@@ -52,7 +52,7 @@ export const createCourse = async (
 
   if (playlistGenerationTopics.length !== 0) {
     // Map unique unmatched topics ONLY if they have not been processed previously
-    unmatchedTopicsToVideosMapper(allChapters, subject);
+    await unmatchedTopicsToVideosMapper(allChapters, subject);
   }
 
   // Navigation chapters 

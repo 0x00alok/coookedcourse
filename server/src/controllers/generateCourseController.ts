@@ -27,17 +27,17 @@ const checkInDB = catchAsync(async (req: Request, res: Response, next: NextFunct
     const { syllabus, subject, client: clientId } = req.body;
 
     // Find existing USER 
-    const user = await prisma.user.findUnique({
+    const user = clientId === undefined ? null : await prisma.user.findUnique({
         where: {
             clientId
         }
-    })
+    });
 
     // If USER doesn't exist, create one
     if (!user) {
         await prisma.user.create({
             data: {
-                clientId
+                clientId : req._cooked_client!
             }
         })
     }
