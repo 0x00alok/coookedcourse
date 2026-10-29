@@ -9,10 +9,11 @@ RUN python3 -m venv ${VIRTUAL_ENV}
 ENV PATH="${VIRTUAL_ENV}/bin:$PATH"
 
 RUN pip install -r requirements.txt
+RUN pip install debugpy
 
 COPY . .
 
 EXPOSE 8000
+EXPOSE 9230
 
-CMD ["fastapi", "dev", "main.py", "--host", "0.0.0.0", "--port", "8000"]
-
+CMD ["python", "-m", "debugpy", "--listen", "0.0.0.0:9230", "-m", "fastapi", "dev", "main.py", "--host", "0.0.0.0", "--port", "8000"]
