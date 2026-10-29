@@ -61,6 +61,7 @@ services:
     container_name: agent_container
     ports: 
       - 8000:8000 
+      - 9230:9230
     networks:
       - cookedcourse_network
     extra_hosts:
