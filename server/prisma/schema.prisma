@@ -42,6 +42,8 @@ model ChapterAnalysisFallback {
   topicName    String
   ytVideoTitle String
   ytVideoId    String
+  viewCount    String @default("0")
+  duration     Int    @default(0)
 
   chapterAnalysisId String
   chapterAnalysis   ChapterAnalysis @relation(fields: [chapterAnalysisId], references: [id])
@@ -51,6 +53,8 @@ model MatchedYoutubeTitle {
   id           String @id @default(cuid())
   ytVideoTitle String
   ytVideoId    String
+  viewCount    String @default("0")
+  duration     Int    @default(0)
 
   chapterAnalysisId String
   chapterAnalysis   ChapterAnalysis @relation(fields: [chapterAnalysisId], references: [id])
