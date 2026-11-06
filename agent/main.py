@@ -1,6 +1,4 @@
 from pathlib import Path
-import json
-import re
 import time
 
 from fastapi import FastAPI, HTTPException, Query
@@ -14,7 +12,7 @@ from prompts import SYLLABUS_ANALYSIS_PROMPT
 
 
 # Max Playlists to Consider 
-MAX_PLAYLISTS_TO_ITERATE = 1
+MAX_PLAYLISTS_TO_ITERATE = 2
 
 app = FastAPI()
 
@@ -53,11 +51,18 @@ async def generate_topics(syll: Syllabus):
 async def analyze_topics(payload: YTAndSyllabusTopics):
     try:
         syllabus_topics = payload.syllabus_topics
+        # remove id from syllabus topics
+        syllabus_topics = [
+            {key: value for key, value in unit.items() if key != "id"}
+            for unit in syllabus_topics
+        ]
+        
         channel_topics = payload.channel_topics
         
         llm = init_chat_model(
             "openai/gpt-oss-20b",
             model_provider="groq",
+            max_completion_tokens=32768 # gotta keep an eye on this
         )
         
         structured_llm = llm.with_structured_output(AnalysisResponse, method="json_schema")
@@ -89,6 +94,10 @@ async def analyze_topics(payload: YTAndSyllabusTopics):
         return aggregated_llm_res
     except Exception as e:
         print(f"An unexpected error occurred: {e}")
+        
+        # to mainly check max tokens consumed or not
+        if isinstance(e.body, dict):
+            print("Failed generation:", e.body.get("error", {}).get("failed_generation"))
         raise HTTPException(
             status_code=500,
             detail="An internal server error occurred. Please check the logs."

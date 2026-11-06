@@ -1,9 +1,0 @@
-import { CuratePlaylist } from './CuratePlaylist';
-
-import type { CookedTopics } from '../../types/cookedcourse';
-
-export class PlaylistMaker extends CuratePlaylist {
-    constructor(topics, subject: string) {
-        super(topics, subject)
-    }
-}

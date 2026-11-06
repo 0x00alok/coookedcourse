@@ -9,8 +9,8 @@ router
     .route('/generate-course')
     .post(
         authController.protect,
-        generateCourseController.checkInDB,
+        generateCourseController.checkCourseInDB,
         generateCourseController.generateCourse
     )
 
-export { router }
+export default router;

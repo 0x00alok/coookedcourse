@@ -1,29 +1,35 @@
 import prisma from '../../utils/prisma-client/getPrismaClient';
-import { PlaylistMaker } from '../../utils/playlist-maker/PlaylistMaker';
-import { extractSyllabusTopics } from '../llm/agentService';
-import { saveTopicsToDB } from './cookedcourseDbService';
 import { getRedisClient } from '../../utils/redis-client/getRedisClient';
+
+import { CuratePlaylist } from '../../utils/playlist-maker/CuratePlaylist';
+import { extractSyllabusTopics } from '../llm/agentService';
 import { unmatchedTopicsToVideosMapper } from '../../utils/playlist-maker/fallbackVideosUtils';
 
-// TODO: Create a Class which deals with YT Api
+import { createChapters } from '../../db/chapter.db';
+
+import { Chapter, ChapterWithAnalysisAndFallback, ExtractedTopic, PlaylistGenerationTopic } from '../../types/cookedcourse';
+
+
 export const createCourse = async (
-  toExtractTopicsOfChapters,
-  toAnalyzeChapters,
-  alreadyExtractedChapters,
-  clientId,
-  currSubject,
-  query
+  toExtractTopicsOfChapters: string[],
+  toAnalyzeChapters: string[],
+  alreadyExtractedChapters: string[],
+  clientId: string,
+  currSubject: string,
+  query: any
 ) => {
   // GET Topics of SYLLABUS from AI-AGENT, if course has not been generated
   // for the same SYLLABUS or UNITS
   if (toExtractTopicsOfChapters.length !== 0) {
-    await _extractChapterTopicsUsingLLM(toExtractTopicsOfChapters, clientId);
+    const extractedTopics: ExtractedTopic[] = await _extractChapterTopicsUsingLLM(toExtractTopicsOfChapters, clientId);
+
+    await createChapters(_convertExtractedTopicsToChapter(extractedTopics, toExtractTopicsOfChapters));
   }
 
   const subject: string = currSubject;
-  const playlistGenerationTopics = [...toExtractTopicsOfChapters, ...toAnalyzeChapters];
+  const playlistGenerationTopics: string[] = [...toExtractTopicsOfChapters, ...toAnalyzeChapters];
 
-  const playlistGenerationTopicsData = await prisma.chapter.findMany({
+  const playlistGenerationTopicsData: PlaylistGenerationTopic[] = await prisma.chapter.findMany({
     where: { chapterData: { in: playlistGenerationTopics } },
     select: {
       id: true,
@@ -32,13 +38,13 @@ export const createCourse = async (
     }
   })
 
-  // Playlist Maker Instance
+  // Curate Playlists
   if (playlistGenerationTopics.length !== 0) {
     await _generatePlaylistsUsingLLM(playlistGenerationTopicsData, subject, clientId, query);
   }
 
-  // fetch all chapters from DB
-  let allChapters = await prisma.chapter.findMany({
+  // Fetch all chapters from db to pass in curate fn
+  let allChapters: ChapterWithAnalysisAndFallback[] = await prisma.chapter.findMany({
     where: { chapterData: { in: [...playlistGenerationTopics, ...alreadyExtractedChapters] } },
     include: {
       chapterAnalysis: {
@@ -48,97 +54,66 @@ export const createCourse = async (
         }
       }
     }
-  })
+  });
 
   if (playlistGenerationTopics.length !== 0) {
     // Map unique unmatched topics ONLY if they have not been processed previously
     await unmatchedTopicsToVideosMapper(allChapters, subject);
   }
 
-  // Navigation chapters 
-  const navChapters = _generateNavigationChapters(allChapters);
-
-  // To add only unique channels
-  const uniqueChannels = new Set();
-  const analysisMap = {};
-
-  // Get updated chapters data
-  allChapters = await prisma.chapter.findMany({
-    where: { chapterData: { in: [...playlistGenerationTopics, ...alreadyExtractedChapters] } },
-    include: {
-      chapterAnalysis: {
-        include: {
-          matchedYoutubeTitles: true,
-          fallbackVideos: true
-        }
-      }
-    }
-  });
-
-  allChapters.forEach(chapter => {
-    chapter.chapterAnalysis.forEach(analysis => {
-      const channelName = analysis.channelName;
-      uniqueChannels.add(channelName);
-
-      // channel key
-      if (!analysisMap[channelName]) {
-        analysisMap[channelName] = {};
-      }
-
-      const savedFallbackVideos = analysis.fallbackVideos?.map(fb => ({
-        topicName: fb.topicName,
-        ytVideoTitle: fb.ytVideoTitle,
-        ytVideoId: fb.ytVideoId,
-        viewCount: (fb as any).viewCount || '0',
-        duration: (fb as any).duration || 0
-      })) || [];
-
-      // Map data directly to the specific chapter ID
-      analysisMap[channelName][chapter.id] = {
-        analysisId: analysis.id,
-        unitCoveragePercentage: analysis.unitCoveragePercentage,
-        matchedSyllabusTopics: analysis.matchedSyllabusTopics,
-        unmatchedSyllabusTopics: analysis.unmatchedSyllabusTopics,
-        videos: analysis.matchedYoutubeTitles.map(vid => ({
-          ytVideoTitle: vid.ytVideoTitle,
-          ytVideoId: vid.ytVideoId,
-          viewCount: vid.viewCount || '0',
-          duration: vid.duration || 0
-        })),
-        // TODO: Fetch fallback videos with their respective topics
-        fallbackVideos: savedFallbackVideos
-      };
-    });
-  });
-
-  return { navChapters, uniqueChannels, analysisMap }
+  return allChapters.map((chapter) => chapter.id);
 }
 
-const _extractChapterTopicsUsingLLM = async (toExtractTopicsOfChapters, clientId) => {
-  let newExtractedTopics: string | "";
+
+// Topics Extractor from Syllabus using LLM
+const _extractChapterTopicsUsingLLM = async (
+  toExtractTopicsOfChapters: string[] | [],
+  clientId: string
+): Promise<ExtractedTopic[]> => {
+  let newExtractedTopics: ExtractedTopic[];
+
   if (!(await (await getRedisClient()).get(`new-extracted-topics#${clientId}`))) {
     newExtractedTopics = await extractSyllabusTopics(toExtractTopicsOfChapters);
     (await getRedisClient()).set(`new-extracted-topics#${clientId}`, JSON.stringify(newExtractedTopics))
   }
 
-  const cachedExtractedTopics = await (await getRedisClient()).get(`new-extracted-topics#${clientId}`)
+  newExtractedTopics = JSON.parse((await (await getRedisClient()).get(`new-extracted-topics#${clientId}`))!) as unknown as ExtractedTopic[];
 
-  newExtractedTopics = cachedExtractedTopics ? JSON.parse(cachedExtractedTopics) : null;
-
-  await saveTopicsToDB(toExtractTopicsOfChapters, newExtractedTopics);
+  return newExtractedTopics;
 }
 
-const _generatePlaylistsUsingLLM = async (playlistGenerationTopicsData, subject, clientId, query) => {
-  const pm = new PlaylistMaker(playlistGenerationTopicsData, subject);
-  const { analyzedTopicsToSave } = await pm.fetchPlaylistVideos(clientId, query, playlistGenerationTopicsData);
+// Go to function to curate playlists
+const _generatePlaylistsUsingLLM = async (
+  playlistGenerationTopicsData: PlaylistGenerationTopic[],
+  subject: string,
+  clientId: string,
+  query: any
+) => {
+  const cp = new CuratePlaylist(playlistGenerationTopicsData, subject, clientId);
 
-  const insertPromises = analyzedTopicsToSave.map(analyzedTopic => prisma.chapterAnalysis.create({ data: analyzedTopic }))
-  await prisma.$transaction(insertPromises);
+  // Less Go!!
+  await cp.curate(playlistGenerationTopicsData);
 }
 
-const _generateNavigationChapters = (allChapters) => {
-  return allChapters.map(ch => ({
-    id: ch.id,
-    name: ch.name
-  }));
+// Converts extracted topics from LLM into Chapter type 
+const _convertExtractedTopicsToChapter = (
+  extractedTopics: ExtractedTopic[],
+  toExtractTopicsOfChapters: string[]
+): Chapter[] => {
+  const convertedTopics = toExtractTopicsOfChapters.flatMap((topic, i) => {
+    // Extract topics of same unit with relevant chapter data for db
+    return extractedTopics
+      // Filter topics of same unit 
+      .filter((topic) => Number(topic.unit - 1) === i)
+      .map(({ unit, ...rest }) => rest)
+      // Arrange data as required by the db
+      .reduce((acc, extractedTopic) => {
+        acc.name = extractedTopic.name ? extractedTopic.name : undefined;
+        acc.chapterData = topic;
+        acc.topics = extractedTopic.topics;
+
+        return acc;
+      }, {} as Chapter);
+  })
+  return convertedTopics;
 }

@@ -1,46 +1,40 @@
-import { NextFunction, Request, Response } from 'express'
+import { NextFunction, Request, Response } from 'express';
+import prisma from '../utils/prisma-client/getPrismaClient';
+import catchAsync from '../utils/catchAsync';
 
-import catchAsync from '../utils/catchAsync'
-import prisma from '../utils/prisma-client/getPrismaClient'
-import { createCourse } from '../services/cooked-course/generateCourseService'
+import { createCourse } from '../services/cooked-course/generateCourseService';
+import { getChapterByChapterDataWithAnalysis } from '../db/chapter.db';
 
+import { GenerateCourseRequest } from '../types/cookedcourse';
 
 const generateCourse = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const { navChapters, uniqueChannels, analysisMap } = await createCourse(
-        req.__to_extract_topics_of_chapters,
-        req.__to_analyze_chapters,
-        req.__already_extracted_chapters,
-        req._cooked_client,
-        req.body.subject,
-        req.query
-    );
+    try {
+        const cookedPlaylistIds = await createCourse(
+            req.__to_extract_topics_of_chapters!,
+            req.__to_analyze_chapters!,
+            req.__already_extracted_chapters!,
+            req._cooked_client!,
+            req.body.subject,
+            req.query
+        );
 
-    res.status(200).json({
-        "message": "success",
-        navChapters,
-        channels: Array.from(uniqueChannels),
-        analysisMap
-    })
-})
-
-const checkInDB = catchAsync(async (req: Request, res: Response, next: NextFunction) => {
-    const { syllabus, subject, client: clientId } = req.body;
-
-    // Find existing USER 
-    const user = clientId === undefined ? null : await prisma.user.findUnique({
-        where: {
-            clientId
-        }
-    });
-
-    // If USER doesn't exist, create one
-    if (!user) {
-        await prisma.user.create({
-            data: {
-                clientId : req._cooked_client!
-            }
+        res.status(200).json({
+            message: "success",
+            cookedPlaylistIds
+        })
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({
+            message: "Something went wrong"
         })
     }
+})
+
+const checkCourseInDB = catchAsync(async (req: Request<{}, {}, GenerateCourseRequest>, res: Response, next: NextFunction) => {
+    const { syllabus, subject, client: clientId } = req.body;
+
+    // TODO: Proper matching for course string (partial, some starting or ending text missing)
+    await findExistingUserOrCreate(clientId, req);
 
     const alreadyExtractedChapters: string[] = [];
     const toExtractTopicsOfChapters: string[] = [];
@@ -49,14 +43,7 @@ const checkInDB = catchAsync(async (req: Request, res: Response, next: NextFunct
     // Check for already created course based on the syllabus
     await Promise.all((Object.entries(syllabus)).map(async (el, i) => {
         // Find the Chapter
-        const searchedChapter = await prisma.chapter.findFirst({
-            where: {
-                chapterData: el[1]!,
-            },
-            include: {
-                chapterAnalysis: true
-            }
-        });
+        const searchedChapter = await getChapterByChapterDataWithAnalysis(el[1]);
 
         // If Chapter doesn't exist
         if (!searchedChapter) toExtractTopicsOfChapters.push(el[1]);
@@ -78,4 +65,22 @@ const checkInDB = catchAsync(async (req: Request, res: Response, next: NextFunct
     next();
 })
 
-export default { generateCourse, checkInDB }
+const findExistingUserOrCreate = async (userId: string, req: Request) => {
+    // Find existing USER 
+    const user = userId === undefined ? null : await prisma.user.findUnique({
+        where: {
+            clientId: userId
+        }
+    });
+
+    // If USER doesn't exist, create one
+    if (!user) {
+        await prisma.user.create({
+            data: {
+                clientId: req._cooked_client!
+            }
+        })
+    }
+}
+
+export default { generateCourse, checkCourseInDB };
